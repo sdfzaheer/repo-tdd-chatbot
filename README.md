@@ -452,6 +452,8 @@ If you are using VSCode, you can add the following settings to your `settings.js
 
 ## Trademarks
 
+My days is sucked with azure function app.
+
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
 trademarks or logos is subject to and must follow 
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
