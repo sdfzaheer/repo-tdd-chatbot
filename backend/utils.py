@@ -3,12 +3,8 @@ import json
 import logging
 import requests
 import dataclasses
-from datetime import datetime, timedelta 
-import re 
-from urllib.parse import unquote, urlparse 
-from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions 
-from typing import List
 
+from typing import List
 
 DEBUG = os.environ.get("DEBUG", "false")
 if DEBUG.lower() == "true":
@@ -17,44 +13,6 @@ if DEBUG.lower() == "true":
 AZURE_SEARCH_PERMITTED_GROUPS_COLUMN = os.environ.get(
     "AZURE_SEARCH_PERMITTED_GROUPS_COLUMN"
 )
-BLOB_CREDENTIAL = os.environ.get("BLOB_KEY") 
-BLOB_ACCOUNT = os.environ.get("URL_BLOB_CONTAINER") 
-
-####### SAS Token creator#######
-def remove_SAS_token(url): 
-    parsed_url = urlparse(url) 
-    url_without_query = parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path 
-    return url_without_query 
-
-def split_url(url): 
-    url_decoded = unquote(url) 
-    if url_decoded.endswith('/'): 
-        url_decoded = url_decoded[:-1] 
-    pattern = fr"{BLOB_ACCOUNT}/([^/]+)/(.+)" 
-    match = re.search(pattern, url_decoded) 
-    container = match.group(1) 
-    blob = match.group(2) 
-    return container, blob   
-
-def generate_SAS(url): 
-    container, blob = split_url(url) 
-    blob_service_client =BlobServiceClient(BLOB_ACCOUNT, credential=BLOB_CREDENTIAL) 
-    blob_client = blob_service_client.get_blob_client(container=container, blob=blob)  
-    sas_token_expiry_time = datetime.utcnow() + timedelta(hours=1)  # 1 hour from now 
-    sas_token = generate_blob_sas( 
-        account_name=blob_client.account_name, 
-        container_name=blob_client.container_name, 
-        blob_name=blob_client.blob_name, 
-        account_key=BLOB_CREDENTIAL, 
-        permission=BlobSasPermissions(read=True), 
-        expiry=sas_token_expiry_time 
-    ) 
-    return sas_token 
-
-
-
-
-
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -131,20 +89,13 @@ def format_non_streaming_response(chatCompletion, history_metadata, apim_request
     if len(chatCompletion.choices) > 0:
         message = chatCompletion.choices[0].message
         if message:
-            if hasattr(message, "context"):                
-                content = message.context 
-                for i, chunk in enumerate(content["citations"]): 
-                    content["citations"][i]["url"]=chunk["url"]+"?"+generate_SAS(chunk["url"]) 
-                response_obj["choices"][0]["messages"].append( 
-                    { 
-
-                        "role": "tool", 
-
-                        "content": json.dumps(content), 
-
-                    } 
-
-                ) 
+            if hasattr(message, "context"):
+                response_obj["choices"][0]["messages"].append(
+                    {
+                        "role": "tool",
+                        "content": json.dumps(message.context),
+                    }
+                )
             response_obj["choices"][0]["messages"].append(
                 {
                     "role": "assistant",
@@ -170,11 +121,7 @@ def format_stream_response(chatCompletionChunk, history_metadata, apim_request_i
         delta = chatCompletionChunk.choices[0].delta
         if delta:
             if hasattr(delta, "context"):
-                content = delta.context
-                for i, chunk in enumerate(content["citations"]): 
-                    content["citations"][i]["url"]=chunk["url"]+"?"+generate_SAS(chunk["url"]) 
-                messageObj = {"role": "tool", "content": json.dumps(content)} 
-  #              messageObj = {"role": "tool", "content": json.dumps(delta.context)}
+                messageObj = {"role": "tool", "content": json.dumps(delta.context)}
                 response_obj["choices"][0]["messages"].append(messageObj)
                 return response_obj
             if delta.role == "assistant" and hasattr(delta, "context"):
